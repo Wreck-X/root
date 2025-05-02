@@ -1,0 +1,14 @@
+CREATE TABLE StatusUpdateHistory (
+	update_id SERIAL PRIMARY KEY,
+	member_id INT REFERENCES Member(member_id) ON DELETE CASCADE,
+	date DATE NOT NULL,
+	is_updated BOOLEAN NOT NULL DEFAULT FALSE,
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	UNIQUE (member_id, date)
+);
+
+CREATE TRIGGER set_updated_at
+BEFORE UPDATE ON StatusUpdateHistory
+FOR EACH ROW
+EXECUTE FUNCTION update_timestamp();

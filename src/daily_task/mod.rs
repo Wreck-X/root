@@ -1,4 +1,4 @@
-use chrono::{Datelike, NaiveDate, NaiveTime};
+use chrono::NaiveTime;
 use chrono_tz::Asia::Kolkata;
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -44,13 +44,16 @@ async fn execute_daily_task(pool: Arc<PgPool>) {
         .await;
 
     match members {
-        Ok(members) => update_attendance(members, &pool).await,
+        Ok(members) => {
+            update_attendance(&members, &pool).await;
+            update_status_history(&members, &pool).await;
+        }
         // TODO: Handle this
         Err(e) => error!("Failed to fetch members: {:?}", e),
     };
 }
 
-async fn update_attendance(members: Vec<Member>, pool: &PgPool) {
+async fn update_attendance(members: &Vec<Member>, pool: &PgPool) {
     #[allow(deprecated)]
     let today = chrono::Utc::now()
         .with_timezone(&Kolkata)
@@ -88,5 +91,42 @@ async fn update_attendance(members: Vec<Member>, pool: &PgPool) {
         }
         // This could have been called in `execute_daily_task()` but that would require us to loop through members twice.
         // Whether or not inserting attendance failed, Root will attempt to update AttendanceSummary. This can potentially fail too since insertion failed earlier. However, these two do not depend on each other and one of them failing is no reason to avoid trying the other.
+    }
+}
+
+async fn update_status_history(members: &Vec<Member>, pool: &PgPool) {
+    #[allow(deprecated)]
+    let today = chrono::Utc::now()
+        .with_timezone(&Kolkata)
+        .date()
+        .naive_local();
+    debug!("Updating Status Update History on {}", today);
+
+    for member in members {
+        let status_update = sqlx::query(
+            "INSERT INTO StatusUpdateHistory (member_id, date, is_updated) 
+                     VALUES ($1, $2, $3)
+                     ON CONFLICT (member_id, date) DO NOTHING",
+        )
+        .bind(member.member_id)
+        .bind(today)
+        .bind(false)
+        .execute(pool)
+        .await;
+
+        match status_update {
+            Ok(_) => {
+                debug!(
+                    "Status update record added for member ID: {}",
+                    member.member_id
+                );
+            }
+            Err(e) => {
+                error!(
+                    "Failed to insert status update history for member ID: {}: {:?}",
+                    member.member_id, e
+                );
+            }
+        }
     }
 }
