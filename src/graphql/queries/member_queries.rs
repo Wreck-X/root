@@ -62,7 +62,23 @@ impl Member {
         let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
 
         sqlx::query_as::<_, AttendanceSummaryInfo>(
-            "SELECT year, month, days_attended FROM AttendanceSummary WHERE member_id = $1",
+            "SELECT
+                to_char(month_date, 'YYYY') AS year,
+                to_char(month_date, 'MM') AS month,
+                count(*) AS days_attended
+            FROM (
+                SELECT
+                    date_trunc('month', date) AS month_date,
+                    member_id
+                FROM
+                    attendance
+                WHERE
+                    is_present = TRUE
+                    AND member_id = $1
+            ) AS monthly_data
+            GROUP BY
+                month_date,
+                member_id;",
         )
         .bind(self.member_id)
         .fetch_all(pool.as_ref())
