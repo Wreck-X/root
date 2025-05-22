@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_graphql::{Context, Object, Result};
 use sqlx::PgPool;
 
-use crate::models::status_update_streak::{StatusUpdateStreak as Streak, StreakInput};
+use crate::models::status_update::{StatusUpdateStreak as Streak, StreakInput};
 use chrono_tz::Asia::Kolkata;
 
 #[derive(Default)]

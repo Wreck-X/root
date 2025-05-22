@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use crate::models::status_update_streak::StatusUpdateHistory;
-use crate::models::status_update_streak::StatusUpdateStreak as Streak;
+use crate::models::status_update::StatusUpdateHistory;
+use crate::models::status_update::StatusUpdateStreak as Streak;
 use async_graphql::{Context, Object, Result};
 use sqlx::PgPool;
 

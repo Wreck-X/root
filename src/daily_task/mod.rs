@@ -63,7 +63,7 @@ async fn update_attendance(members: &Vec<Member>, pool: &PgPool) {
 
     for member in members {
         let attendance = sqlx::query(
-            "INSERT INTO Attendance (member_id, date, is_present, time_in, time_out) 
+            "INSERT INTO Attendance (member_id, date, is_present, time_in, time_out)
                      VALUES ($1, $2, $3, $4, $5)
                      ON CONFLICT (member_id, date) DO NOTHING",
         )

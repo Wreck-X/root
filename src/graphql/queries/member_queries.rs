@@ -6,7 +6,7 @@ use crate::models::{
     attendance::{AttendanceInfo, AttendanceSummaryInfo},
     member::Member,
     project::Project,
-    status_update_streak::StatusUpdateStreakInfo,
+    status_update::StatusUpdateStreakInfo,
 };
 
 #[derive(Default)]
