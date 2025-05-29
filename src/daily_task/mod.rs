@@ -1,4 +1,4 @@
-use chrono::{Datelike, NaiveDate, NaiveTime};
+use chrono::NaiveTime;
 use chrono_tz::Asia::Kolkata;
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -44,13 +44,16 @@ async fn execute_daily_task(pool: Arc<PgPool>) {
         .await;
 
     match members {
-        Ok(members) => update_attendance(members, &pool).await,
+        Ok(members) => {
+            update_attendance(&members, &pool).await;
+            update_status_history(&members, &pool).await;
+        }
         // TODO: Handle this
         Err(e) => error!("Failed to fetch members: {:?}", e),
     };
 }
 
-async fn update_attendance(members: Vec<Member>, pool: &PgPool) {
+async fn update_attendance(members: &Vec<Member>, pool: &PgPool) {
     #[allow(deprecated)]
     let today = chrono::Utc::now()
         .with_timezone(&Kolkata)
@@ -60,7 +63,7 @@ async fn update_attendance(members: Vec<Member>, pool: &PgPool) {
 
     for member in members {
         let attendance = sqlx::query(
-            "INSERT INTO Attendance (member_id, date, is_present, time_in, time_out) 
+            "INSERT INTO Attendance (member_id, date, is_present, time_in, time_out)
                      VALUES ($1, $2, $3, $4, $5)
                      ON CONFLICT (member_id, date) DO NOTHING",
         )
@@ -88,115 +91,42 @@ async fn update_attendance(members: Vec<Member>, pool: &PgPool) {
         }
         // This could have been called in `execute_daily_task()` but that would require us to loop through members twice.
         // Whether or not inserting attendance failed, Root will attempt to update AttendanceSummary. This can potentially fail too since insertion failed earlier. However, these two do not depend on each other and one of them failing is no reason to avoid trying the other.
-        update_attendance_summary(member.member_id, pool).await;
     }
 }
 
-async fn update_attendance_summary(member_id: i32, pool: &PgPool) {
-    debug!("Updating summary for member #{}", member_id);
+async fn update_status_history(members: &Vec<Member>, pool: &PgPool) {
     #[allow(deprecated)]
     let today = chrono::Utc::now()
         .with_timezone(&Kolkata)
         .date()
         .naive_local();
-    let yesterday = today - chrono::Duration::days(1);
+    debug!("Updating Status Update History on {}", today);
 
-    let was_present_yesterday = sqlx::query_scalar::<_, bool>(
-        r#"
-            SELECT is_present 
-            FROM Attendance 
-            WHERE member_id = $1 AND date = $2
-        "#,
-    )
-    .bind(member_id)
-    .bind(yesterday)
-    .fetch_one(pool)
-    .await;
+    for member in members {
+        let status_update = sqlx::query(
+            "INSERT INTO StatusUpdateHistory (member_id, date, is_updated) 
+                     VALUES ($1, $2, $3)
+                     ON CONFLICT (member_id, date) DO NOTHING",
+        )
+        .bind(member.member_id)
+        .bind(today)
+        .bind(false)
+        .execute(pool)
+        .await;
 
-    match was_present_yesterday {
-        Ok(true) => {
-            update_days_attended(member_id, today, pool).await;
-        }
-        Ok(false) => {
-            debug!(
-                "Member ID: {} was absent yesterday, days_attended remains the same.",
-                member_id
-            );
-        }
-        Err(e) => {
-            error!("Could not fetch records from DB. Error: {}", e);
-        }
-    }
-}
-
-async fn update_days_attended(member_id: i32, today: NaiveDate, pool: &PgPool) {
-    // Convert year and month into i32 cause SQLx cannot encode u32 into database types
-    let month: i32 = (today.month0() + 1) as i32;
-    let year: i32 = today.year_ce().1 as i32;
-
-    let existing_days_attended = sqlx::query_scalar::<_, i32>(
-        r#"
-            SELECT days_attended
-            FROM AttendanceSummary
-            WHERE member_id = $1
-            AND year = $2
-            AND month = $3
-        "#,
-    )
-    .bind(member_id)
-    .bind(year)
-    .bind(month)
-    .fetch_optional(pool)
-    .await;
-
-    match existing_days_attended {
-        Ok(Some(days_attended)) => {
-            sqlx::query(
-                r#"
-                    UPDATE AttendanceSummary
-                    SET days_attended = days_attended + 1
-                    WHERE member_id = $1
-                    AND year = $2
-                    AND month = $3
-                "#,
-            )
-            .bind(member_id)
-            .bind(year)
-            .bind(month)
-            .execute(pool)
-            .await
-            .unwrap();
-
-            debug!(
-                "Updated days_attended for member ID: {}. New days_attended: {}",
-                member_id,
-                days_attended + 1
-            );
-        }
-        Ok(None) => {
-            sqlx::query(
-                r#"
-                    INSERT INTO AttendanceSummary (member_id, year, month, days_attended)
-                    VALUES ($1, $2, $3, 1)
-                "#,
-            )
-            .bind(member_id)
-            .bind(year)
-            .bind(month)
-            .execute(pool)
-            .await
-            .unwrap();
-
-            debug!(
-                "Created new streak for member ID: {} for the month.",
-                member_id
-            );
-        }
-        Err(e) => {
-            error!(
-                "Error checking or updating streak for member ID {}: {:?}",
-                member_id, e
-            );
+        match status_update {
+            Ok(_) => {
+                debug!(
+                    "Status update record added for member ID: {}",
+                    member.member_id
+                );
+            }
+            Err(e) => {
+                error!(
+                    "Failed to insert status update history for member ID: {}: {:?}",
+                    member.member_id, e
+                );
+            }
         }
     }
 }

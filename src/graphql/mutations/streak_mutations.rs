@@ -3,7 +3,8 @@ use std::sync::Arc;
 use async_graphql::{Context, Object, Result};
 use sqlx::PgPool;
 
-use crate::models::status_update_streak::{StatusUpdateStreak as Streak, StreakInput};
+use crate::models::status_update::{StatusUpdateStreak as Streak, StreakInput};
+use chrono_tz::Asia::Kolkata;
 
 #[derive(Default)]
 pub struct StreakMutations;
@@ -30,6 +31,8 @@ impl StreakMutations {
 
         let updated_streak = query.fetch_one(pool.as_ref()).await?;
 
+        update_status_history(pool.as_ref(), input.member_id).await?;
+
         Ok(updated_streak)
     }
 
@@ -52,4 +55,28 @@ impl StreakMutations {
         let updated_streak = query.fetch_one(pool.as_ref()).await?;
         Ok(updated_streak)
     }
+}
+
+async fn update_status_history(pool: &PgPool, member_id: i32) -> Result<()> {
+    #[allow(deprecated)]
+    let yesterday = chrono::Utc::now()
+        .with_timezone(&Kolkata)
+        .date()
+        .naive_local()
+        - chrono::Duration::days(1);
+
+    sqlx::query(
+        "
+        UPDATE StatusUpdateHistory 
+        SET is_updated = TRUE
+        WHERE member_id = $1
+        AND date = $2
+        ",
+    )
+    .bind(member_id)
+    .bind(yesterday)
+    .execute(pool)
+    .await?;
+
+    Ok(())
 }
