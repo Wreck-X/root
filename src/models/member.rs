@@ -39,3 +39,17 @@ pub struct CreateMemberInput {
     pub discord_id: String,
     pub group_id: i32,
 }
+
+#[derive(InputObject)]
+pub struct UpdateMemberInput {
+    pub member_id: i32,
+    pub roll_no: Option<String>,
+    pub name: Option<String>,
+    pub email: Option<String>,
+    pub sex: Option<Sex>,
+    pub year: Option<i32>,
+    pub hostel: Option<String>,
+    pub mac_address: Option<String>,
+    pub discord_id: Option<String>,
+    pub group_id: Option<i32>,
+}
