@@ -28,7 +28,7 @@ impl MemberMutations {
         .bind(&input.mac_address)
         .bind(&input.discord_id)
         .bind(input.group_id)
-        .bind(input.track)
+        .bind(&input.track)
         .bind(now)
         .fetch_one(pool.as_ref())
         .await?;
