@@ -55,16 +55,16 @@ impl MemberMutations {
             WHERE member_id = $11
             RETURNING *",
         )
-        .bind(input.roll_no)
-        .bind(input.name)
-        .bind(input.email)
+        .bind(&input.roll_no)
+        .bind(&input.name)
+        .bind(&input.email)
         .bind(input.sex)
         .bind(input.year)
-        .bind(input.hostel)
-        .bind(input.mac_address)
-        .bind(input.discord_id)
+        .bind(&input.hostel)
+        .bind(&input.mac_address)
+        .bind(&input.discord_id)
         .bind(input.group_id)
-        .bind(input.track)
+        .bind(&input.track)
         .bind(input.member_id)
         .fetch_one(pool.as_ref())
         .await?;
