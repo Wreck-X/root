@@ -1,6 +1,7 @@
 use async_graphql::{ComplexObject, Context, Object, Result};
 use sqlx::PgPool;
 use std::sync::Arc;
+use chrono::NaiveDate;
 
 use crate::models::{
     attendance::{AttendanceInfo, AttendanceSummaryInfo},
@@ -106,5 +107,23 @@ impl Member {
             .fetch_all(pool.as_ref())
             .await
             .unwrap_or_default()
+    }
+
+    async fn status_update_count_by_date(&self,
+        ctx: &Context<'_>,
+        start_date:NaiveDate,
+        end_date:NaiveDate) 
+        -> Result<i64> {
+            
+        let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
+
+        let result : i64 = sqlx::query_scalar("SELECT count(*) AS updatecount FROM statusupdatehistory WHERE is_updated = TRUE and member_id=$1 and date BETWEEN $2 and $3;")
+            .bind(self.member_id)
+            .bind(start_date)
+            .bind(end_date)
+            .fetch_one(pool.as_ref())
+            .await?;
+
+        Ok(result)
     }
 }
