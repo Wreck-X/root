@@ -1,8 +1,4 @@
-<div align="center">
-  <h1>Root</h1>
-  <p>A GraphQL backend for managing club member information</p>
-</div>
-
+Root
 ---
 
 Root is our club's backend, responsible for collecting and distributing data from and to all the other services including [Home](https://www.github.com/amfoss/home), [amD](https://www.github.com/amfoss/amd) and [Presense](https://www.github.com/amfoss/presense). The idea is to have all our data easily available in one place and to let every other end-user applications to be standalone. This ensures there's no single point of failure for all our infrastructure (as was the case with our previous CMS). Though Root going down would definitely cause a few features to stop working on the other apps.
