@@ -34,7 +34,7 @@ impl Config {
         Self {
             env: std::env::var("ROOT_ENV").unwrap_or_else(|_| "development".to_string()),
             secret_key: std::env::var("ROOT_SECRET").expect("ROOT_SECRET must be set."),
-            database_url: std::env::var("DATABASE_URL").expect("DATABASE_URL must be set."),
+            database_url: std::env::var("ROOT_DB_URL").expect("ROOT_DB_URL must be set."),
             port: std::env::var("ROOT_PORT").expect("ROOT_PORT must be set."),
             seeding_enabled: std::env::var("SEEDING_ENABLED")
                 .map(|v| v.to_lowercase() == "true")

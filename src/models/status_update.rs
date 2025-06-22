@@ -1,4 +1,5 @@
 use async_graphql::{InputObject, SimpleObject};
+use chrono::NaiveDate;
 use sqlx::FromRow;
 
 #[derive(SimpleObject, FromRow)]
@@ -17,4 +18,14 @@ pub struct StatusUpdateStreakInfo {
 #[derive(InputObject)]
 pub struct StreakInput {
     pub member_id: i32,
+}
+
+#[derive(SimpleObject, FromRow)]
+#[graphql(complex)]
+pub struct StatusUpdateHistory {
+    pub update_id: i32,
+    #[graphql(skip)]
+    pub member_id: i32,
+    pub is_updated: bool,
+    pub date: NaiveDate,
 }
