@@ -32,9 +32,9 @@ GraphQL playground should be available at `http://localhost:8000/graphiql` as lo
 # Deployment
 The deployed instance can be accessed at [root.amfoss.in](https://root.amfoss.in).
 
-The `main` branch is exclusively meant for production use and commits which get merged into it will make their way into the deployed instance. Active development should occur on the `develop` branch and when sufficient stability has been achieved, they can be merged into `main`. This will kick off the deployment workflow. 
+The `production` branch is exclusively meant for production use and commits which get merged into it will make their way into the deployed instance. Active development should occur on the `develop` branch and when sufficient stability has been achieved, they can be merged into `production`. This will kick off the deployment workflow.
 
-Further implementation details can be found at [bedrock](https://github.com/amfoss/bedrock).
+Further details can be found at [bedrock](https://github.com/amfoss/bedrock).
 
 # Documentation
 
