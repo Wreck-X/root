@@ -21,8 +21,10 @@ pub struct StreakInput {
 }
 
 #[derive(SimpleObject, FromRow)]
+#[graphql(complex)]
 pub struct StatusUpdateHistory {
     pub update_id: i32,
+    #[graphql(skip)]
     pub member_id: i32,
     pub is_updated: bool,
     pub date: NaiveDate,

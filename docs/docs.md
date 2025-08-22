@@ -19,6 +19,14 @@ src/
 ## Database Schema
 - [Database](database.md) - Database structure and migrations
 
+### Database Seeding
+Database seeding can be enabled by setting `SEEDING_ENABLED` to `true` in the `.env` file. (Disabled by default)
+
+```
+# Seed toggle
+SEEDING_ENABLED=true
+```
+
 ## Core Features
 ### Member Management
 - Query members by ID, roll number, or Discord ID
