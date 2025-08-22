@@ -1,4 +1,5 @@
 use async_graphql::{ComplexObject, Context, Object, Result};
+use chrono::NaiveDate;
 use sqlx::PgPool;
 use std::sync::Arc;
 
@@ -6,7 +7,7 @@ use crate::models::{
     attendance::{AttendanceInfo, AttendanceSummaryInfo},
     member::Member,
     project::Project,
-    status_update::StatusUpdateStreakInfo,
+    status_update::{StatusUpdateHistory, StatusUpdateStreakInfo},
 };
 
 #[derive(Default)]
@@ -106,5 +107,36 @@ impl Member {
             .fetch_all(pool.as_ref())
             .await
             .unwrap_or_default()
+    }
+
+    async fn status_update_count_by_date(
+        &self,
+        ctx: &Context<'_>,
+        start_date: NaiveDate,
+        end_date: NaiveDate,
+    ) -> Result<i64> {
+        let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
+
+        let result : i64 = sqlx::query_scalar("SELECT count(*) AS updatecount FROM statusupdatehistory WHERE is_updated = TRUE and member_id=$1 and date BETWEEN $2 and $3;")
+            .bind(self.member_id)
+            .bind(start_date)
+            .bind(end_date)
+            .fetch_one(pool.as_ref())
+            .await?;
+
+        Ok(result)
+    }
+
+    async fn status_update_history(&self, ctx: &Context<'_>) -> Result<Vec<StatusUpdateHistory>> {
+        let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
+
+        let history = sqlx::query_as::<_, StatusUpdateHistory>(
+            "SELECT * FROM StatusUpdateHistory WHERE member_id = $1 AND date BETWEEN (SELECT MAX(date) FROM StatusUpdateHistory WHERE member_id = $1) - INTERVAL '6 months' AND (SELECT MAX(date) FROM StatusUpdateHistory WHERE member_id = $1);"
+        )
+        .bind(self.member_id)
+        .fetch_all(pool.as_ref())
+        .await?;
+
+        Ok(history)
     }
 }
