@@ -1,11 +1,7 @@
-<div align="center">
-  <h1>Root</h1>
-  <p>A GraphQL backend for managing club member information</p>
-</div>
-
+Root
 ---
 
-Root is our club's backend, responsible for collecting and distributing data from and to all the other services including [Home](https://www.github.com/amfoss/home), [amD](https://www.github.com/amfoss/amd) and [Presense](https://www.github.com/amfoss/presense). The idea is to have all our data easily available in one place and to let every other end-user applications to be standalone. This ensures there's no single point of failure for all our infrastructure (as was the case with our previous CMS). Though Root going down would definitely cause a few features to stop working on the other apps.
+Root is the central backend service for our club’s infrastructure. It acts as a unified data layer, handling communication between services like [Home](https://www.github.com/amfoss/home), [amD](https://www.github.com/amfoss/amd), and [Presense](https://www.github.com/amfoss/presense). Each frontend or end-user application is designed to be self-contained, relying on Root for data access without being tightly coupled to it. This modular approach reduces the risk of a complete infrastructure failure — unlike our previous CMS — though some features may still be affected if Root goes down.
 
 # Quick Setup
 
@@ -33,13 +29,12 @@ Root is our club's backend, responsible for collecting and distributing data fro
 
 GraphQL playground should be available at `http://localhost:8000/graphiql` as long as it's in development mode.
 
-
 # Deployment
 The deployed instance can be accessed at [root.amfoss.in](https://root.amfoss.in).
 
-The `main` branch is exclusively meant for production use and commits which get merged into it will make their way into the deployed instance. Active development should occur on the `develop` branch and when sufficient stability has been achieved, they can be merged into `main`. This will kick off the deployment workflow. 
+The `production` branch is exclusively meant for production use and commits which get merged into it will make their way into the deployed instance. Active development should occur on the `develop` branch and when sufficient stability has been achieved, they can be merged into `production`. This will kick off the deployment workflow.
 
-Further implementation details can be found at [bedrock](https://github.com/amfoss/bedrock).
+Further details can be found at [bedrock](https://github.com/amfoss/bedrock).
 
 # Documentation
 

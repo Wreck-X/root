@@ -8,10 +8,12 @@ use tracing::info;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 use daily_task::run_daily_task_at_midnight;
+use database_seeder::seed_database;
 use graphql::{Mutation, Query};
 use routes::setup_router;
 
 pub mod daily_task;
+pub mod database_seeder;
 pub mod graphql;
 pub mod models;
 pub mod routes;
@@ -23,6 +25,7 @@ struct Config {
     secret_key: String,
     database_url: String,
     port: String,
+    seeding_enabled: bool,
 }
 
 impl Config {
@@ -33,6 +36,9 @@ impl Config {
             secret_key: std::env::var("ROOT_SECRET").expect("ROOT_SECRET must be set."),
             database_url: std::env::var("ROOT_DB_URL").expect("ROOT_DB_URL must be set."),
             port: std::env::var("ROOT_PORT").expect("ROOT_PORT must be set."),
+            seeding_enabled: std::env::var("SEEDING_ENABLED")
+                .map(|v| v.to_lowercase() == "true")
+                .unwrap_or(false),
         }
     }
 }
@@ -44,6 +50,11 @@ async fn main() {
 
     let pool = setup_database(&config.database_url).await;
     let schema = build_graphql_schema(pool.clone(), config.secret_key);
+
+    if config.seeding_enabled {
+        info!("Seeding database...");
+        seed_database(&pool).await;
+    }
 
     tokio::task::spawn(async {
         run_daily_task_at_midnight(pool).await;
