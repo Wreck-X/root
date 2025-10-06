@@ -58,60 +58,9 @@ WHERE (random() < 0.75)
 ON CONFLICT (member_id, date) DO NOTHING;
 
 
--- AttendanceSummary
-INSERT INTO AttendanceSummary (
-    member_id, year, month, days_attended
-)
-SELECT 
-    m.member_id,
-    2025,
-    (i % 12) + 1,
-    FLOOR(random() * 26 + 3)::INT
-FROM generate_series(1, 400) AS i
-JOIN (
-    SELECT generate_series(1, 60) AS idx, member_id
-    FROM member
-) AS m ON (i % 60) + 1 = m.idx
-ON CONFLICT (member_id, year, month) DO NOTHING;
-
-
--- StatusUpdateStreak
-INSERT INTO StatusUpdateStreak (
-    member_id, current_streak, max_streak
-)
-SELECT 
-    member_id,
-    FLOOR(random() * 10 + 1)::INT,
-    FLOOR(random() * 30 + 10)::INT
-FROM member
-ON CONFLICT (member_id) DO NOTHING;
-
-
--- Project
-INSERT INTO Project (
-    member_id, title
-)
-SELECT 
-    (i % 60) + 1,
-    CASE
-        WHEN i % 3 = 0 THEN 'Machine Learning Project ' || i
-        WHEN i % 3 = 1 THEN 'Web Development Project ' || i
-        ELSE 'Data Analysis Project ' || i
-    END
-FROM generate_series(1, 200) AS i
-WHERE NOT EXISTS (
-    SELECT 1 FROM Project 
-    WHERE member_id = (i % 60) + 1 AND title = CASE
-        WHEN i % 3 = 0 THEN 'Machine Learning Project ' || i
-        WHEN i % 3 = 1 THEN 'Web Development Project ' || i
-        ELSE 'Data Analysis Project ' || i
-    END
-);
-
-
 -- StatusUpdateHistory
 INSERT INTO StatusUpdateHistory (
-    member_id, date, is_updated
+    member_id, date, is_sent
 )
 SELECT 
     m.member_id,

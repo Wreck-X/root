@@ -1,25 +1,29 @@
+use crate::models::attendance::AttendanceRecord;
 use async_graphql::{ComplexObject, Context, Object, Result};
 use chrono::NaiveDate;
 use sqlx::PgPool;
 use std::sync::Arc;
 
-use crate::models::{
-    attendance::{AttendanceInfo, AttendanceSummaryInfo},
-    member::Member,
-    project::Project,
-    status_update::{StatusUpdateHistory, StatusUpdateStreakInfo},
-};
+use crate::models::{member::Member, status_update::StatusUpdateStreakRecord};
 
 #[derive(Default)]
 pub struct MemberQueries;
 
+pub struct StatusInfo {
+    member_id: i32,
+}
+
+pub struct AttendanceInfo {
+    member_id: i32,
+}
+
 #[Object]
 impl MemberQueries {
-    pub async fn members(
+    pub async fn all_members(
         &self,
         ctx: &Context<'_>,
         year: Option<i32>,
-        group_id: Option<i32>,
+        track: Option<String>,
     ) -> Result<Vec<Member>> {
         let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
 
@@ -30,8 +34,8 @@ impl MemberQueries {
             query.push_bind(y);
         }
 
-        if let Some(g) = group_id {
-            query.push(" AND group_id = ");
+        if let Some(g) = track {
+            query.push(" AND track = ");
             query.push_bind(g);
         }
 
@@ -42,74 +46,89 @@ impl MemberQueries {
 
         Ok(members)
     }
+
+    async fn member(
+        &self,
+        ctx: &Context<'_>,
+        member_id: Option<i32>,
+        email: Option<String>,
+    ) -> Result<Option<Member>> {
+        let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
+
+        match (member_id, email) {
+            (Some(id), None) => {
+                let member =
+                    sqlx::query_as::<_, Member>("SELECT * FROM Member WHERE member_id = $1")
+                        .bind(id)
+                        .fetch_optional(pool.as_ref())
+                        .await?;
+                Ok(member)
+            }
+            (None, Some(email)) => {
+                let member = sqlx::query_as::<_, Member>("SELECT * FROM Member WHERE email = $1")
+                    .bind(email)
+                    .fetch_optional(pool.as_ref())
+                    .await?;
+                Ok(member)
+            }
+            (Some(_), Some(_)) => Err("Provide only one of member_id or email".into()),
+            (None, None) => Err("Provide either member_id or email".into()),
+        }
+    }
 }
 
-#[ComplexObject]
-impl Member {
-    async fn attendance(&self, ctx: &Context<'_>) -> Vec<AttendanceInfo> {
+#[Object]
+impl StatusInfo {
+    async fn streak(&self, ctx: &Context<'_>) -> Result<StatusUpdateStreakRecord> {
         let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
 
-        sqlx::query_as::<_, AttendanceInfo>(
-            "SELECT date, is_present, time_in, time_out FROM Attendance WHERE member_id = $1",
-        )
-        .bind(self.member_id)
-        .fetch_all(pool.as_ref())
-        .await
-        .unwrap_or_default()
-    }
-
-    #[graphql(name = "attendanceSummary")]
-    async fn attendance_summary(&self, ctx: &Context<'_>) -> Vec<AttendanceSummaryInfo> {
-        let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
-
-        sqlx::query_as::<_, AttendanceSummaryInfo>(
-            "SELECT
-                to_char(month_date, 'YYYY') AS year,
-                to_char(month_date, 'MM') AS month,
-                count(*) AS days_attended
-            FROM (
+        // The below is based on the classic 'islands and gaps' problem, adapted to fit our needs.
+        // The key idea used here is in the 'streaks' CTE: for consecutive dates (a streak), the difference
+        // between the date value and its row number (rn) remains constant.
+        // All rows with the same (date - rn) value therefore belong to the same streak.
+        let result = sqlx::query_as::<_, StatusUpdateStreakRecord>(
+            "WITH numbered AS (
                 SELECT
-                    date_trunc('month', date) AS month_date,
-                    member_id
-                FROM
-                    attendance
-                WHERE
-                    is_present = TRUE
-                    AND member_id = $1
-            ) AS monthly_data
-            GROUP BY
-                month_date,
-                member_id;",
+                    date,
+                    ROW_NUMBER() OVER (ORDER BY date) AS rn
+                FROM statusupdatehistory
+                WHERE member_id = $1
+                  AND is_sent = true
+            ),
+            streaks AS (
+                SELECT
+                    date,
+                    date - rn * INTERVAL '1 day' AS streak_id
+                FROM numbered
+            ),
+            grouped AS (
+                SELECT
+                    COUNT(*) AS streak,
+                    MAX(date) AS end_date
+                FROM streaks
+                GROUP BY streak_id
+            )
+            SELECT
+                MAX(streak) AS max_streak,
+                (
+                    SELECT streak
+                    FROM grouped
+                    WHERE end_date = (
+                        SELECT MAX(end_date)
+                        FROM grouped
+                    )
+                ) AS current_streak
+            FROM grouped;
+        ",
         )
         .bind(self.member_id)
-        .fetch_all(pool.as_ref())
-        .await
-        .unwrap_or_default()
+        .fetch_one(pool.as_ref())
+        .await?;
+
+        Ok(result)
     }
 
-    async fn streak(&self, ctx: &Context<'_>) -> Vec<StatusUpdateStreakInfo> {
-        let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
-
-        sqlx::query_as::<_, StatusUpdateStreakInfo>(
-            "SELECT current_streak, max_streak FROM StatusUpdateStreak WHERE member_id = $1",
-        )
-        .bind(self.member_id)
-        .fetch_all(pool.as_ref())
-        .await
-        .unwrap_or_default()
-    }
-
-    async fn projects(&self, ctx: &Context<'_>) -> Vec<Project> {
-        let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
-
-        sqlx::query_as::<_, Project>("SELECT project_id, title FROM Project WHERE member_id = $1")
-            .bind(self.member_id)
-            .fetch_all(pool.as_ref())
-            .await
-            .unwrap_or_default()
-    }
-
-    async fn status_update_count_by_date(
+    async fn update_count(
         &self,
         ctx: &Context<'_>,
         start_date: NaiveDate,
@@ -126,21 +145,42 @@ impl Member {
 
         Ok(result)
     }
+}
 
-    async fn status_update_history(&self, ctx: &Context<'_>) -> Result<Vec<StatusUpdateHistory>> {
-        let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
-
-        let history = sqlx::query_as::<_, StatusUpdateHistory>(
-            "SELECT * FROM StatusUpdateHistory WHERE member_id = $1 AND date BETWEEN (SELECT MAX(date) FROM StatusUpdateHistory WHERE member_id = $1) - INTERVAL '6 months' AND (SELECT MAX(date) FROM StatusUpdateHistory WHERE member_id = $1);"
-        )
+#[Object]
+impl AttendanceInfo {
+    async fn records(
+        &self,
+        ctx: &Context<'_>,
+        start_date: NaiveDate,
+        end_date: NaiveDate,
+    ) -> Result<Vec<AttendanceRecord>> {
+        let pool = ctx.data::<Arc<PgPool>>()?;
+        let rows = sqlx::query_as::<_, AttendanceRecord>("SELECT * FROM Attendance att INNER JOIN member m ON att.member_id = m.member_id where date BETWEEN $1 and $2 AND att.member_id=$3")
+        .bind(start_date)
+        .bind(end_date)
         .bind(self.member_id)
         .fetch_all(pool.as_ref())
         .await?;
 
-        Ok(history)
+        Ok(rows)
     }
 
-    async fn present_count_by_date(
+    async fn on_date(&self, ctx: &Context<'_>, date: NaiveDate) -> Result<AttendanceRecord> {
+        let pool = ctx.data::<Arc<PgPool>>()?;
+
+        let rows = sqlx::query_as::<_, AttendanceRecord>(
+            "SELECT * FROM Attendance WHERE date = $1 AND member_id=$2",
+        )
+        .bind(date)
+        .bind(self.member_id)
+        .fetch_one(pool.as_ref())
+        .await?;
+
+        Ok(rows)
+    }
+
+    async fn present_count(
         &self,
         ctx: &Context<'_>,
         start_date: NaiveDate,
@@ -170,7 +210,7 @@ impl Member {
         Ok(records)
     }
 
-    async fn absent_count_by_date(
+    async fn absent_count(
         &self,
         ctx: &Context<'_>,
         start_date: NaiveDate,
@@ -213,5 +253,20 @@ impl Member {
         .await?;
 
         Ok(working_days - present)
+    }
+}
+
+#[ComplexObject]
+impl Member {
+    async fn status(&self, _ctx: &Context<'_>) -> StatusInfo {
+        StatusInfo {
+            member_id: self.member_id,
+        }
+    }
+
+    async fn attendance(&self, _ctx: &Context<'_>) -> AttendanceInfo {
+        AttendanceInfo {
+            member_id: self.member_id,
+        }
     }
 }
