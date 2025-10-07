@@ -79,6 +79,25 @@ impl MemberQueries {
 
 #[Object]
 impl StatusInfo {
+    async fn records(
+        &self,
+        ctx: &Context<'_>,
+        start_date: NaiveDate,
+        end_date: NaiveDate,
+    ) -> Result<Vec<AttendanceRecord>> {
+        let pool = ctx.data::<Arc<PgPool>>()?;
+        let rows = sqlx::query_as::<_, AttendanceRecord>(
+            "SELECT * FROM StatusUpdateHistory where date BETWEEN $1 and $2 AND member_id = $3",
+        )
+        .bind(start_date)
+        .bind(end_date)
+        .bind(self.member_id)
+        .fetch_all(pool.as_ref())
+        .await?;
+
+        Ok(rows)
+    }
+
     async fn streak(&self, ctx: &Context<'_>) -> Result<Option<StatusUpdateStreakRecord>> {
         let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
 
