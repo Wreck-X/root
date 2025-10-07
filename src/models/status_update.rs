@@ -12,6 +12,6 @@ pub struct StatusUpdateRecord {
 
 #[derive(SimpleObject, FromRow)]
 pub struct StatusUpdateStreakRecord {
-    pub current_streak: i64,
-    pub max_streak: i64,
+    pub current_streak: Option<i64>,
+    pub max_streak: Option<i64>,
 }

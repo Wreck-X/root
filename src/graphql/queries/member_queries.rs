@@ -98,7 +98,7 @@ impl StatusInfo {
         Ok(rows)
     }
 
-    async fn streak(&self, ctx: &Context<'_>) -> Result<Option<StatusUpdateStreakRecord>> {
+    async fn streak(&self, ctx: &Context<'_>) -> Result<StatusUpdateStreakRecord> {
         let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
 
         // The below is based on the classic 'islands and gaps' problem, adapted to fit our needs.
@@ -144,7 +144,7 @@ impl StatusInfo {
         .fetch_one(pool.as_ref())
         .await?;
 
-        Ok(Some(result))
+        Ok(result)
     }
 
     async fn update_count(
