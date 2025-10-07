@@ -156,7 +156,9 @@ impl AttendanceInfo {
         end_date: NaiveDate,
     ) -> Result<Vec<AttendanceRecord>> {
         let pool = ctx.data::<Arc<PgPool>>()?;
-        let rows = sqlx::query_as::<_, AttendanceRecord>("SELECT * FROM Attendance att INNER JOIN member m ON att.member_id = m.member_id where date BETWEEN $1 and $2 AND att.member_id=$3")
+        let rows = sqlx::query_as::<_, AttendanceRecord>(
+            "SELECT * FROM Attendance where date BETWEEN $1 and $2 AND member_id = $3",
+        )
         .bind(start_date)
         .bind(end_date)
         .bind(self.member_id)
