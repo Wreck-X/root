@@ -79,7 +79,7 @@ impl MemberQueries {
 
 #[Object]
 impl StatusInfo {
-    async fn streak(&self, ctx: &Context<'_>) -> Result<StatusUpdateStreakRecord> {
+    async fn streak(&self, ctx: &Context<'_>) -> Result<Option<StatusUpdateStreakRecord>> {
         let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
 
         // The below is based on the classic 'islands and gaps' problem, adapted to fit our needs.
@@ -125,7 +125,7 @@ impl StatusInfo {
         .fetch_one(pool.as_ref())
         .await?;
 
-        Ok(result)
+        Ok(Some(result))
     }
 
     async fn update_count(
@@ -136,7 +136,7 @@ impl StatusInfo {
     ) -> Result<i64> {
         let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
 
-        let result : i64 = sqlx::query_scalar("SELECT count(*) AS updatecount FROM statusupdatehistory WHERE is_updated = TRUE and member_id=$1 and date BETWEEN $2 and $3;")
+        let result : i64 = sqlx::query_scalar("SELECT count(*) AS updatecount FROM statusupdatehistory WHERE is_sent = TRUE and member_id=$1 and date BETWEEN $2 and $3;")
             .bind(self.member_id)
             .bind(start_date)
             .bind(end_date)
