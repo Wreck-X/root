@@ -1,4 +1,4 @@
-use crate::models::attendance::AttendanceRecord;
+use crate::models::{attendance::AttendanceRecord, status_update::StatusUpdateRecord};
 use async_graphql::{ComplexObject, Context, Object, Result};
 use chrono::NaiveDate;
 use sqlx::PgPool;
@@ -84,15 +84,29 @@ impl StatusInfo {
         ctx: &Context<'_>,
         start_date: NaiveDate,
         end_date: NaiveDate,
-    ) -> Result<Vec<AttendanceRecord>> {
+    ) -> Result<Vec<StatusUpdateRecord>> {
         let pool = ctx.data::<Arc<PgPool>>()?;
-        let rows = sqlx::query_as::<_, AttendanceRecord>(
+        let rows = sqlx::query_as::<_, StatusUpdateRecord>(
             "SELECT * FROM StatusUpdateHistory where date BETWEEN $1 and $2 AND member_id = $3",
         )
         .bind(start_date)
         .bind(end_date)
         .bind(self.member_id)
         .fetch_all(pool.as_ref())
+        .await?;
+
+        Ok(rows)
+    }
+
+    async fn on_date(&self, ctx: &Context<'_>, date: NaiveDate) -> Result<StatusUpdateRecord> {
+        let pool = ctx.data::<Arc<PgPool>>()?;
+
+        let rows = sqlx::query_as::<_, StatusUpdateRecord>(
+            "SELECT * FROM StatusUpdateHistory WHERE date = $1 AND member_id=$2",
+        )
+        .bind(date)
+        .bind(self.member_id)
+        .fetch_one(pool.as_ref())
         .await?;
 
         Ok(rows)
