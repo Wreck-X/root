@@ -3,7 +3,7 @@ use axum::http::{HeaderValue, Method};
 use sqlx::PgPool;
 use std::sync::Arc;
 use time::UtcOffset;
-use tower_http::cors::CorsLayer;
+use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
@@ -138,13 +138,14 @@ fn build_graphql_schema(
 
 fn setup_cors() -> CorsLayer {
     // TODO: Replace hardcoded strings
-    let origins: [HeaderValue; 2] = [
+    let _origins: [HeaderValue; 2] = [
         "http://127.0.0.1:3000".parse().unwrap(),
         "https://home.amfoss.in".parse().unwrap(),
     ];
 
     CorsLayer::new()
-        .allow_origin(origins)
+        // TODO 2: https://github.com/amfoss/root/issues/151, enabling all origins for the time being
+        .allow_origin(Any)
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
         .allow_headers(tower_http::cors::Any)
 }
