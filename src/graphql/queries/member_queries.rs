@@ -165,6 +165,29 @@ impl StatusInfo {
         Ok(result)
     }
 
+    async fn consecutive_misses(&self, ctx: &Context<'_>) -> Result<Option<i64>> {
+        let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
+
+        let result: Option<i64> = sqlx::query_scalar(
+            "
+            SELECT distance
+            FROM (
+              SELECT is_sent, ROW_NUMBER() OVER (ORDER BY date DESC) - 1 AS distance
+              FROM StatusUpdateHistory
+              WHERE member_id = $1
+            )
+            WHERE is_sent = TRUE
+            ORDER BY distance ASC
+            LIMIT 1;
+            ",
+        )
+        .bind(self.member_id)
+        .fetch_optional(pool.as_ref())
+        .await?;
+
+        Ok(result)
+    }
+
     async fn update_count(
         &self,
         ctx: &Context<'_>,
