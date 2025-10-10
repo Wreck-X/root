@@ -98,7 +98,11 @@ impl StatusInfo {
         Ok(rows)
     }
 
-    async fn on_date(&self, ctx: &Context<'_>, date: NaiveDate) -> Result<StatusUpdateRecord> {
+    async fn on_date(
+        &self,
+        ctx: &Context<'_>,
+        date: NaiveDate,
+    ) -> Result<Option<StatusUpdateRecord>> {
         let pool = ctx.data::<Arc<PgPool>>()?;
 
         let rows = sqlx::query_as::<_, StatusUpdateRecord>(
@@ -106,7 +110,7 @@ impl StatusInfo {
         )
         .bind(date)
         .bind(self.member_id)
-        .fetch_one(pool.as_ref())
+        .fetch_optional(pool.as_ref())
         .await?;
 
         Ok(rows)
@@ -201,7 +205,11 @@ impl AttendanceInfo {
         Ok(rows)
     }
 
-    async fn on_date(&self, ctx: &Context<'_>, date: NaiveDate) -> Result<AttendanceRecord> {
+    async fn on_date(
+        &self,
+        ctx: &Context<'_>,
+        date: NaiveDate,
+    ) -> Result<Option<AttendanceRecord>> {
         let pool = ctx.data::<Arc<PgPool>>()?;
 
         let rows = sqlx::query_as::<_, AttendanceRecord>(
@@ -209,7 +217,7 @@ impl AttendanceInfo {
         )
         .bind(date)
         .bind(self.member_id)
-        .fetch_one(pool.as_ref())
+        .fetch_optional(pool.as_ref())
         .await?;
 
         Ok(rows)
