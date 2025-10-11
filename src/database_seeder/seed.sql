@@ -1,6 +1,6 @@
 -- Member
 INSERT INTO member (
-    roll_no, name, email, sex, year, hostel, mac_address, discord_id, group_id
+    roll_no, name, email, sex, year, hostel, mac_address, discord_id, group_id, track, github_user
 )
 SELECT 
     'R' || LPAD(i::TEXT, 4, '0'),
@@ -26,7 +26,9 @@ SELECT
     'Hostel ' || ((i % 5) + 1),
     '00:14:22:01:' || LPAD(TO_HEX(i), 2, '0') || ':' || LPAD(TO_HEX(i + 60), 2, '0'),
     'discord_user_' || i,
-    (i % 8) + 1
+    (i % 8) + 1,
+    'track ' || ((i%4)+1),
+    'github_user_' || i
 FROM generate_series(1, 60) AS i
 ON CONFLICT (roll_no) DO NOTHING;
 
