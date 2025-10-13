@@ -57,5 +57,5 @@ pub struct UpdateMemberInput {
     pub discord_id: Option<String>,
     pub group_id: Option<i32>,
     pub track: Option<String>,
-    pub github_user: String,
+    pub github_user: Option<String>,
 }
