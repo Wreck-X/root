@@ -16,8 +16,8 @@ impl MemberMutations {
         let now = Local::now().with_timezone(&Kolkata).date_naive();
 
         let member = sqlx::query_as::<_, Member>(
-            "INSERT INTO Member (roll_no, name, email, sex, year, hostel, mac_address, discord_id, group_id, track, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *"
+            "INSERT INTO Member (roll_no, name, email, sex, year, hostel, mac_address, discord_id, group_id, track, github_user, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *"
         )
         .bind(&input.roll_no)
         .bind(&input.name)
@@ -29,6 +29,7 @@ impl MemberMutations {
         .bind(&input.discord_id)
         .bind(input.group_id)
         .bind(&input.track)
+        .bind(&input.github_user)
         .bind(now)
         .fetch_one(pool.as_ref())
         .await?;
@@ -51,8 +52,9 @@ impl MemberMutations {
                 mac_address = COALESCE($7, mac_address),
                 discord_id = COALESCE($8, discord_id),
                 group_id = COALESCE($9, group_id),
-                track = COALESCE($10, track)
-            WHERE member_id = $11
+                track = COALESCE($10, track),
+                github_user = COALESCE($11, github_user)
+            WHERE member_id = $12
             RETURNING *",
         )
         .bind(&input.roll_no)
@@ -65,6 +67,7 @@ impl MemberMutations {
         .bind(&input.discord_id)
         .bind(input.group_id)
         .bind(&input.track)
+        .bind(&input.github_user)
         .bind(input.member_id)
         .fetch_one(pool.as_ref())
         .await?;
