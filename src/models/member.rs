@@ -24,7 +24,7 @@ pub struct Member {
     pub discord_id: String,
     pub group_id: i32,
     pub track: Option<String>,
-    pub github_user: String,
+    pub github_user: Option<String>,
     #[graphql(skip)] // Don't expose internal fields/meta-data
     pub created_at: NaiveDateTime,
 }
@@ -41,7 +41,7 @@ pub struct CreateMemberInput {
     pub discord_id: String,
     pub group_id: i32,
     pub track: Option<String>,
-    pub github_user: String,
+    pub github_user: Option<String>,
 }
 
 #[derive(InputObject)]
