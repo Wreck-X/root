@@ -1,5 +1,5 @@
 use async_graphql::{Context, Object, Result};
-use chrono_tz::Asia::Kolkata;
+use chrono::NaiveDate;
 use sqlx::PgPool;
 use std::sync::Arc;
 
@@ -14,15 +14,10 @@ impl StatusMutations {
         &self,
         ctx: &Context<'_>,
         emails: Vec<String>,
+        date: NaiveDate,
     ) -> Result<Vec<StatusUpdateRecord>> {
         let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context");
         #[allow(deprecated)]
-        let yesterday = chrono::Utc::now()
-            .with_timezone(&Kolkata)
-            .date()
-            .naive_local()
-            - chrono::Duration::days(1);
-
         let status = sqlx::query_as::<_, StatusUpdateRecord>(
             "UPDATE StatusUpdateHistory SET
                 is_sent = true
@@ -32,7 +27,7 @@ impl StatusMutations {
             ",
         )
         .bind(emails)
-        .bind(yesterday)
+        .bind(date)
         .fetch_all(pool.as_ref())
         .await?;
 
