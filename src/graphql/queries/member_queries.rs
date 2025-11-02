@@ -147,14 +147,11 @@ impl StatusInfo {
             )
             SELECT
                 MAX(streak) AS max_streak,
-                (
+                COALESCE ((
                     SELECT streak
                     FROM grouped
-                    WHERE end_date = (
-                        SELECT MAX(end_date)
-                        FROM grouped
-                    )
-                ) AS current_streak
+                    WHERE end_date = CURRENT_DATE - INTERVAL '1 day'
+                ), 0) AS current_streak
             FROM grouped;
         ",
         )
