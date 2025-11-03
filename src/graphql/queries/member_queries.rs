@@ -174,10 +174,13 @@ impl StatusInfo {
               SELECT is_sent, ROW_NUMBER() OVER (ORDER BY date DESC) - 1 AS distance
               FROM StatusUpdateHistory suh
               WHERE member_id = $1
-              AND NOT EXISTS (
-                SELECT * FROM StatusBreaks sb
-                WHERE year = (SELECT year from Member where member_id=$1)
-                AND suh.date BETWEEN sb.start_date AND sb.end_date
+              AND (
+                is_sent = TRUE
+                OR NOT EXISTS (
+                    SELECT * FROM StatusBreaks sb
+                    WHERE year = (SELECT year from Member where member_id=$1)
+                    AND suh.date BETWEEN sb.start_date AND sb.end_date
+                )
               )
             )
             WHERE is_sent = TRUE
