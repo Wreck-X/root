@@ -171,7 +171,7 @@ impl StatusInfo {
             "
             SELECT distance
             FROM (
-              SELECT is_sent, ROW_NUMBER() OVER (ORDER BY date DESC) - 1 AS distance
+              SELECT is_sent, ROW_NUMBER() OVER (ORDER BY date DESC) - 2 AS distance
               FROM StatusUpdateHistory suh
               WHERE member_id = $1
               AND (
