@@ -25,7 +25,6 @@ pub struct Member {
     pub group_id: i32,
     pub track: Option<String>,
     pub github_user: Option<String>,
-    #[graphql(skip)] // Don't expose internal fields/meta-data
     pub created_at: NaiveDateTime,
 }
 
