@@ -13,6 +13,7 @@ use database_seeder::seed_database;
 use graphql::{Mutation, Query};
 use routes::setup_router;
 
+pub mod auth;
 pub mod daily_task;
 pub mod database_seeder;
 pub mod graphql;
@@ -57,12 +58,13 @@ async fn main() {
         seed_database(&pool).await;
     }
 
-    tokio::task::spawn(async {
-        run_daily_task_at_midnight(pool).await;
+    let pool_for_task = pool.clone();
+    tokio::task::spawn(async move {
+        run_daily_task_at_midnight(pool_for_task).await;
     });
 
     let cors = setup_cors();
-    let router = setup_router(schema, cors, config.env == "development");
+    let router = setup_router(schema, cors, config.env == "development", pool);
 
     info!("Starting Root...");
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", config.port))
