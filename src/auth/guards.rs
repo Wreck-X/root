@@ -1,12 +1,10 @@
 use crate::auth::AuthContext;
 use async_graphql::{Context, Error, Guard, Result};
 
-/// Guard that requires any authentication
 pub struct AuthGuard;
 
 impl Guard for AuthGuard {
     async fn check(&self, ctx: &Context<'_>) -> Result<()> {
-        tracing::info!("{:?}", ctx.data::<AuthContext>());
         let auth = ctx.data::<AuthContext>().map_err(|_| {
             Error::new("Authentication context not found. This is an internal server error.")
         })?;
@@ -21,7 +19,6 @@ impl Guard for AuthGuard {
     }
 }
 
-/// Guard that requires admin role
 pub struct AdminGuard;
 
 impl Guard for AdminGuard {
@@ -38,7 +35,6 @@ impl Guard for AdminGuard {
     }
 }
 
-/// Guard that requires either admin or bot role
 pub struct AdminOrBotGuard;
 
 impl Guard for AdminOrBotGuard {

@@ -76,7 +76,6 @@ impl GitHubOAuthService {
         Ok(Self { config, client })
     }
 
-    /// Generate authorization URL for OAuth flow
     pub fn get_authorization_url(&self) -> (String, CsrfToken) {
         let (auth_url, csrf_token) = self
             .client
@@ -89,7 +88,6 @@ impl GitHubOAuthService {
         (auth_url.to_string(), csrf_token)
     }
 
-    /// Exchange authorization code for access token
     pub async fn exchange_code(&self, code: String) -> Result<String, String> {
         let token_result = self
             .client
@@ -101,11 +99,9 @@ impl GitHubOAuthService {
         Ok(token_result.access_token().secret().clone())
     }
 
-    /// Fetch GitHub user information
     pub async fn get_user_info(&self, access_token: &str) -> Result<GitHubUser, String> {
         let client = reqwest::Client::new();
 
-        // Fetch user profile
         let user_response: GitHubUserResponse = client
             .get("https://api.github.com/user")
             .header("Authorization", format!("Bearer {}", access_token))
@@ -117,7 +113,7 @@ impl GitHubOAuthService {
             .await
             .map_err(|e| format!("Failed to parse user info: {}", e))?;
 
-        // Get email (fetch from /user/emails if not in profile)
+        // Fetch from /user/emails if not in profile
         let email = if let Some(email) = user_response.email {
             email
         } else {
@@ -147,7 +143,6 @@ impl GitHubOAuthService {
         })
     }
 
-    /// Check if user is member of specified GitHub organization
     pub async fn verify_org_membership(
         &self,
         access_token: &str,
@@ -172,15 +167,11 @@ impl GitHubOAuthService {
         Ok(response.status().as_u16() == 204)
     }
 
-    /// Complete OAuth flow: exchange code, get user info, verify org membership
     pub async fn complete_oauth_flow(&self, code: String) -> Result<GitHubUser, String> {
-        // Exchange code for access token
         let access_token = self.exchange_code(code).await?;
 
-        // Get user information
         let user_info = self.get_user_info(&access_token).await?;
 
-        // Verify organization membership
         let is_member = self
             .verify_org_membership(&access_token, &user_info.github_username)
             .await?;

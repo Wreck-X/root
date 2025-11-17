@@ -10,7 +10,6 @@ use axum::{
 use sqlx::PgPool;
 use std::sync::Arc;
 
-/// Authentication middleware that extracts member from session token or API key
 pub async fn auth_middleware(
     pool: Arc<PgPool>,
     mut request: Request,
@@ -22,9 +21,7 @@ pub async fn auth_middleware(
         .and_then(|h| h.to_str().ok());
 
     let member = if let Some(auth_value) = auth_header {
-        // Extract the Bearer token
         if let Some(token) = auth_value.strip_prefix("Bearer ").or(Some(auth_value)) {
-            // Try session token first
             let session_member = SessionService::validate_session(&pool, token)
                 .await
                 .ok()

@@ -11,7 +11,6 @@ const API_KEY_PREFIX: &str = "root_";
 pub struct ApiKeyService;
 
 impl ApiKeyService {
-    /// Generate a random API key with prefix
     fn generate_api_key() -> String {
         let mut rng = rand::thread_rng();
         let key: String = (0..API_KEY_LENGTH)
@@ -27,7 +26,6 @@ impl ApiKeyService {
         format!("{}{}", API_KEY_PREFIX, key)
     }
 
-    /// Create a new API key for a bot
     pub async fn create_api_key(
         pool: &PgPool,
         name: String,
@@ -60,9 +58,7 @@ impl ApiKeyService {
         Ok(api_key)
     }
 
-    /// Validate an API key and return bot member information
     pub async fn validate_api_key(pool: &PgPool, api_key: &str) -> Result<Option<Member>, String> {
-        // Check if key has correct prefix
         if !api_key.starts_with(API_KEY_PREFIX) {
             return Ok(None);
         }
@@ -84,10 +80,8 @@ impl ApiKeyService {
         .await
         .map_err(|e| format!("Failed to fetch API keys: {}", e))?;
 
-        // Find matching API key by verifying hash
         for key in api_keys {
             if verify(api_key, &key.key_hash).unwrap_or(false) {
-                // Update last_used_at
                 let _ = Self::update_last_used(pool, key.api_key_id).await;
 
                 // Create a synthetic Member for the bot
@@ -116,7 +110,6 @@ impl ApiKeyService {
         Ok(None)
     }
 
-    /// Update the last_used_at timestamp for an API key
     async fn update_last_used(pool: &PgPool, api_key_id: i32) -> Result<(), String> {
         let now = chrono::Utc::now().with_timezone(&Kolkata);
 
@@ -136,7 +129,6 @@ impl ApiKeyService {
         Ok(())
     }
 
-    /// Delete an API key
     pub async fn delete_api_key(pool: &PgPool, api_key_id: i32) -> Result<(), String> {
         sqlx::query(
             r#"

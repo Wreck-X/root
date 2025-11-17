@@ -7,7 +7,6 @@ pub mod session;
 use crate::models::auth::Role;
 use crate::models::member::Member;
 
-// Context for authenticated requests
 #[derive(Clone, Debug)]
 pub struct AuthContext {
     pub user: Option<Member>,

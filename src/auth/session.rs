@@ -11,7 +11,6 @@ const TOKEN_LENGTH: usize = 64;
 pub struct SessionService;
 
 impl SessionService {
-    /// Generate a random session token
     fn generate_token() -> String {
         let mut rng = rand::thread_rng();
         let token: String = (0..TOKEN_LENGTH)
@@ -27,14 +26,12 @@ impl SessionService {
         token
     }
 
-    /// Hash a token using SHA-256
     fn hash_token(token: &str) -> String {
         let mut hasher = Sha256::new();
         hasher.update(token.as_bytes());
         format!("{:x}", hasher.finalize())
     }
 
-    /// Create a new session for a member
     pub async fn create_session(pool: &PgPool, member_id: i32) -> Result<String, String> {
         let token = Self::generate_token();
         let token_hash = Self::hash_token(&token);
@@ -56,7 +53,6 @@ impl SessionService {
         Ok(token)
     }
 
-    /// Validate a session token and return the associated member
     pub async fn validate_session(pool: &PgPool, token: &str) -> Result<Option<Member>, String> {
         let token_hash = Self::hash_token(token);
         let now = chrono::Utc::now().with_timezone(&Kolkata);
@@ -77,7 +73,6 @@ impl SessionService {
         Ok(result)
     }
 
-    /// Delete a session by its token
     pub async fn delete_session_by_token(pool: &PgPool, token: &str) -> Result<(), String> {
         let token_hash = Self::hash_token(token);
 
@@ -95,7 +90,6 @@ impl SessionService {
         Ok(())
     }
 
-    /// Clean up expired sessions (should be run periodically)
     pub async fn cleanup_expired_sessions(pool: &PgPool) -> Result<u64, String> {
         let now = chrono::Utc::now().with_timezone(&Kolkata);
 
