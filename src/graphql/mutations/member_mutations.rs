@@ -1,3 +1,5 @@
+use crate::auth::guards::{AdminOrBotGuard, AuthGuard};
+use crate::models::auth::Role;
 use crate::models::member::{CreateMemberInput, Member, UpdateMemberInput};
 use async_graphql::{Context, Object, Result};
 use chrono::Local;
@@ -10,13 +12,13 @@ pub struct MemberMutations;
 
 #[Object]
 impl MemberMutations {
-    #[graphql(name = "createMember")]
+    #[graphql(name = "createMember", guard = "AdminOrBotGuard")]
     async fn create_member(&self, ctx: &Context<'_>, input: CreateMemberInput) -> Result<Member> {
         let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
         let now = Local::now().with_timezone(&Kolkata).date_naive();
 
         let member = sqlx::query_as::<_, Member>(
-            "INSERT INTO Member (roll_no, name, email, sex, year, hostel, mac_address, discord_id, group_id, track, github_user, created_at)
+            "INSERT INTO Member (roll_no, name, email, sex, year, hostel, mac_address, discord_id, group_id, track, github_user, role)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *"
         )
         .bind(&input.roll_no)
@@ -30,14 +32,14 @@ impl MemberMutations {
         .bind(input.group_id)
         .bind(&input.track)
         .bind(&input.github_user)
-        .bind(now)
+        .bind(Role::Member)
         .fetch_one(pool.as_ref())
         .await?;
 
         Ok(member)
     }
 
-    #[graphql(name = "updateMember")]
+    #[graphql(name = "updateMember", guard = "AuthGuard")]
     async fn update_member(&self, ctx: &Context<'_>, input: UpdateMemberInput) -> Result<Member> {
         let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
 

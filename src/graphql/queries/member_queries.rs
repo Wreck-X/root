@@ -1,3 +1,4 @@
+use crate::auth::guards::AuthGuard;
 use crate::models::{attendance::AttendanceRecord, status_update::StatusUpdateRecord};
 use async_graphql::{ComplexObject, Context, Object, Result};
 use chrono::NaiveDate;
@@ -19,6 +20,7 @@ pub struct AttendanceInfo {
 
 #[Object]
 impl MemberQueries {
+    #[graphql(guard = "AuthGuard")]
     pub async fn all_members(
         &self,
         ctx: &Context<'_>,
@@ -47,6 +49,7 @@ impl MemberQueries {
         Ok(members)
     }
 
+    #[graphql(guard = "AuthGuard")]
     async fn member(
         &self,
         ctx: &Context<'_>,

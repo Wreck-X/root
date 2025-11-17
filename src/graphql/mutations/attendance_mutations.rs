@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
-use chrono::Local;
 use chrono_tz::Asia::Kolkata;
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use sqlx::PgPool;
 
+use crate::auth::guards::AdminOrBotGuard;
 use crate::models::attendance::{AttendanceRecord, MarkAttendanceInput};
 
 type HmacSha256 = Hmac<Sha256>;
@@ -16,7 +16,7 @@ pub struct AttendanceMutations;
 
 #[Object]
 impl AttendanceMutations {
-    #[graphql(name = "markAttendance")]
+    #[graphql(name = "markAttendance", guard = "AdminOrBotGuard")]
     async fn mark_attendance(
         &self,
         ctx: &Context<'_>,
