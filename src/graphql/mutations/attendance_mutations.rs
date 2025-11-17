@@ -42,7 +42,8 @@ impl AttendanceMutations {
             return Err(async_graphql::Error::new("HMAC verification failed"));
         }
 
-        let now = Local::now().with_timezone(&Kolkata).time();
+        let now = chrono::Utc::now().with_timezone(&Kolkata);
+
         let attendance = sqlx::query_as::<_, AttendanceRecord>(
             "UPDATE Attendance SET time_in = CASE 
                 WHEN time_in IS NULL THEN $1 

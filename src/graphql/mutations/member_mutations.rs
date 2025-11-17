@@ -2,8 +2,6 @@ use crate::auth::guards::{AdminOrBotGuard, AuthGuard};
 use crate::models::auth::Role;
 use crate::models::member::{CreateMemberInput, Member, UpdateMemberInput};
 use async_graphql::{Context, Object, Result};
-use chrono::Local;
-use chrono_tz::Asia::Kolkata;
 use sqlx::PgPool;
 use std::sync::Arc;
 
@@ -15,7 +13,6 @@ impl MemberMutations {
     #[graphql(name = "createMember", guard = "AdminOrBotGuard")]
     async fn create_member(&self, ctx: &Context<'_>, input: CreateMemberInput) -> Result<Member> {
         let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
-        let now = Local::now().with_timezone(&Kolkata).date_naive();
 
         let member = sqlx::query_as::<_, Member>(
             "INSERT INTO Member (roll_no, name, email, sex, year, hostel, mac_address, discord_id, group_id, track, github_user, role)
