@@ -1,7 +1,7 @@
 use crate::models::auth::GitHubUser;
 use oauth2::{
-    basic::BasicClient, AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken,
-    RedirectUrl, Scope, TokenResponse, TokenUrl,
+    basic::BasicClient, AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, RedirectUrl,
+    Scope, TokenResponse, TokenUrl,
 };
 use reqwest;
 use serde::{Deserialize, Serialize};
@@ -24,8 +24,7 @@ impl GitHubOAuthConfig {
                 .map_err(|_| "GITHUB_CLIENT_SECRET not set".to_string())?,
             redirect_url: env::var("GITHUB_REDIRECT_URL")
                 .map_err(|_| "GITHUB_REDIRECT_URL not set".to_string())?,
-            org_name: env::var("GITHUB_ORG_NAME")
-                .unwrap_or_else(|_| "amfoss".to_string()),
+            org_name: env::var("GITHUB_ORG_NAME").unwrap_or_else(|_| "amfoss".to_string()),
         })
     }
 
@@ -63,11 +62,6 @@ struct GitHubEmailResponse {
     email: String,
     primary: bool,
     verified: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct GitHubOrgResponse {
-    login: String,
 }
 
 pub struct GitHubOAuthService {

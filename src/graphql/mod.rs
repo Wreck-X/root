@@ -9,4 +9,9 @@ pub mod queries;
 pub struct Query(MemberQueries);
 
 #[derive(MergedObject, Default)]
-pub struct Mutation(MemberMutations, AttendanceMutations, StatusMutations, AuthMutations);
+pub struct Mutation(
+    MemberMutations,
+    AttendanceMutations,
+    StatusMutations,
+    AuthMutations,
+);
