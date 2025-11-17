@@ -24,3 +24,7 @@ tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter", "time", "fmt", "std"] }
 dotenv = "0.15.0"
 time = { version = "0.3.44", features = ["formatting"] }
+oauth2 = "4.4.2"
+bcrypt = "0.15.1"
+rand = "0.8.5"
+async-trait = "0.1.83"
