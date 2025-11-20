@@ -2,27 +2,38 @@ use async_graphql::{http::GraphiQLSource, EmptySubscription, Schema};
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::{
     extract::{Extension, Query as AxumQuery, State},
+    http::{header, StatusCode},
     middleware,
     response::{Html, IntoResponse, Redirect},
     routing::{get, post},
-    Json, Router,
+    Router,
 };
-use serde::{Deserialize, Serialize};
+use axum_extra::extract::cookie::{Cookie, SameSite};
+use serde::Deserialize;
 use sqlx::PgPool;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 
+use crate::auth::auth_service::AuthService;
 use crate::auth::middleware::auth_middleware;
 use crate::auth::oauth::GitHubOAuthService;
+use crate::auth::session::SessionService;
 use crate::auth::AuthContext;
 use crate::graphql::{Mutation, Query};
 
+#[derive(Clone)]
+struct AppState {
+    schema: Schema<Query, Mutation, EmptySubscription>,
+    pool: Arc<PgPool>,
+}
+
 async fn graphql_handler(
-    State(schema): State<Schema<Query, Mutation, EmptySubscription>>,
+    State(state): State<AppState>,
     Extension(auth_context): Extension<AuthContext>,
     req: GraphQLRequest,
 ) -> GraphQLResponse {
-    schema
+    state
+        .schema
         .execute(req.into_inner().data(auth_context))
         .await
         .into()
@@ -35,6 +46,7 @@ pub fn setup_router(
     pool: Arc<PgPool>,
 ) -> Router {
     let pool_for_middleware = pool.clone();
+    let app_state = AppState { schema, pool };
 
     let mut router = Router::new()
         .route("/", post(graphql_handler))
@@ -51,7 +63,7 @@ pub fn setup_router(
             auth_middleware(pool_for_middleware.clone(), req, next)
         }))
         .layer(cors)
-        .with_state(schema)
+        .with_state(app_state)
 }
 
 async fn graphiql() -> impl IntoResponse {
@@ -72,48 +84,49 @@ async fn github_oauth_init() -> Result<Redirect, String> {
 
     let (auth_url, _csrf_token) = oauth_service.get_authorization_url();
 
-    // In production grade systems, we should be storing the token on the server side and returning
-    // a session ID to the frontend. When the frontend calls the server for the authorization
-    // code exchange, it should include the ID [eg: as a cookie] so that the backend can verify
-    // that the state parameter from the authorization server matches it. This is to prevent CSRF
-    // attacks.
-    //
-    // For now, we'll just redirect
     Ok(Redirect::temporary(&auth_url))
 }
 
 #[derive(Deserialize)]
 struct OAuthCallbackQuery {
     code: String,
+    // In a production system, this state variable should be populated
+    // and verified using server side cookies. For now, we'll ignore it.
     #[allow(dead_code)]
     state: Option<String>,
 }
 
-#[derive(Serialize)]
-struct OAuthCallbackResponse {
-    success: bool,
-    message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    redirect_url: Option<String>,
-}
-
-/// Sample GitHub OAuth callback (used for testing purposes)
+/// GitHub OAuth callback handler - completes authentication and sets session cookie
 async fn github_oauth_callback(
+    State(state): State<AppState>,
     AxumQuery(query): AxumQuery<OAuthCallbackQuery>,
-) -> Json<OAuthCallbackResponse> {
-    // In a real implementation, you should:
-    // 0. Handle this callback in the frontend
-    // 1. Verify the CSRF token (state parameter)
-    // 2. Call the githubOAuthCallback GraphQL mutation with the code from the URL parameter
-    // 3. Store the session token and use it for authentication.
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let frontend_url = std::env::var("FRONTEND_URL").expect("FRONTEND_URL not set");
 
-    // For now, we'll return a response that the frontend can handle
-    Json(OAuthCallbackResponse {
-        success: true,
-        message: format!(
-            "OAuth callback received. Use code '{}' with githubOAuthCallback mutation.",
-            query.code
-        ),
-        redirect_url: Some(format!("/graphql?code={}", query.code)),
-    })
+    let member = AuthService::handle_github_callback(state.pool.as_ref(), query.code)
+        .await
+        .map_err(|e| (StatusCode::UNAUTHORIZED, format!("OAuth failed: {}", e)))?;
+
+    let session_token = SessionService::create_session(state.pool.as_ref(), member.member_id)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to create session: {}", e),
+            )
+        })?;
+
+    let cookie = Cookie::build(("session_token", session_token))
+        .path("/")
+        .http_only(true)
+        .secure(true)
+        .same_site(SameSite::Lax)
+        .max_age(time::Duration::days(30))
+        .build();
+
+    // Redirect to frontend with cookie
+    Ok((
+        [(header::SET_COOKIE, cookie.to_string())],
+        Redirect::to(&frontend_url),
+    ))
 }

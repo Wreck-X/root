@@ -1,4 +1,5 @@
 pub mod api_key;
+pub mod auth_service;
 pub mod guards;
 pub mod middleware;
 pub mod oauth;

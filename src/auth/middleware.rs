@@ -7,6 +7,7 @@ use axum::{
     middleware::Next,
     response::Response,
 };
+use axum_extra::extract::CookieJar;
 use sqlx::PgPool;
 use std::sync::Arc;
 
@@ -20,29 +21,22 @@ pub async fn auth_middleware(
         .get(AUTHORIZATION)
         .and_then(|h| h.to_str().ok());
 
-    let member = if let Some(auth_value) = auth_header {
-        if let Some(token) = auth_value.strip_prefix("Bearer ").or(Some(auth_value)) {
-            let session_member = SessionService::validate_session(&pool, token)
-                .await
-                .ok()
-                .flatten();
+    let jar = CookieJar::from_headers(request.headers());
 
-            if session_member.is_some() {
-                session_member
-            } else {
-                // If session returned None, try API key
-                ApiKeyService::validate_api_key(&pool, token)
-                    .await
-                    .ok()
-                    .flatten()
-            }
-        } else {
-            None
-        }
+    let member = if let Some(cookie) = jar.get("session_token") {
+        SessionService::validate_session(&pool, cookie.value())
+            .await
+            .ok()
+            .flatten()
+    } else if let Some(auth_value) = auth_header {
+        let token = auth_value.strip_prefix("Bearer ").unwrap_or(auth_value);
+        ApiKeyService::validate_api_key(&pool, token)
+            .await
+            .ok()
+            .flatten()
     } else {
         None
     };
-
     // Inject auth context into request extensions
     request.extensions_mut().insert(AuthContext::new(member));
 
