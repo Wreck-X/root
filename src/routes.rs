@@ -102,6 +102,7 @@ async fn github_oauth_callback(
     AxumQuery(query): AxumQuery<OAuthCallbackQuery>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     let frontend_url = std::env::var("FRONTEND_URL").expect("FRONTEND_URL not set");
+    let hostname = std::env::var("HOSTNAME").expect("HOSTNAME not set");
 
     let member = AuthService::handle_github_callback(state.pool.as_ref(), query.code)
         .await
@@ -119,7 +120,8 @@ async fn github_oauth_callback(
     let cookie = Cookie::build(("session_token", session_token))
         .path("/")
         .http_only(true)
-        .secure(true)
+        .secure(false)
+        .domain(hostname)
         .same_site(SameSite::Lax)
         .max_age(time::Duration::days(30))
         .build();

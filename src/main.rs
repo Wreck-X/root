@@ -1,4 +1,5 @@
 use async_graphql::EmptySubscription;
+use axum::http::header::CONTENT_TYPE;
 use axum::http::{HeaderValue, Method};
 use sqlx::Executor;
 use sqlx::PgPool;
@@ -147,14 +148,15 @@ fn build_graphql_schema(
 
 fn setup_cors() -> CorsLayer {
     // TODO: Replace hardcoded strings
-    let _origins: [HeaderValue; 2] = [
-        "http://127.0.0.1:3000".parse().unwrap(),
+    let origins: [HeaderValue; 2] = [
+        "http://localhost:3000".parse().unwrap(),
         "https://home.amfoss.in".parse().unwrap(),
     ];
 
     CorsLayer::new()
         // TODO 2: https://github.com/amfoss/root/issues/151, enabling all origins for the time being
-        .allow_origin(Any)
+        .allow_credentials(true)
+        .allow_origin(origins)
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
-        .allow_headers(tower_http::cors::Any)
+        .allow_headers([CONTENT_TYPE])
 }
