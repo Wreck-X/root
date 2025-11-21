@@ -1,6 +1,5 @@
 use crate::auth::api_key::ApiKeyService;
 use crate::auth::guards::AdminGuard;
-use crate::auth::session::SessionService;
 use crate::auth::AuthContext;
 use crate::models::auth::ApiKeyResponse;
 use async_graphql::{Context, Object, Result};
@@ -12,24 +11,6 @@ pub struct AuthMutations;
 
 #[Object]
 impl AuthMutations {
-    /// Logout - invalidate session
-    #[graphql(name = "logout")]
-    async fn logout(&self, ctx: &Context<'_>, session_token: String) -> Result<bool> {
-        let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
-        let auth = ctx
-            .data::<AuthContext>()
-            .expect("AuthContext must be in context.");
-
-        if auth.is_authenticated() {
-            SessionService::delete_session_by_token(pool.as_ref(), &session_token)
-                .await
-                .map_err(|e| format!("Failed to logout: {}", e))?;
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
     /// Create a new bot with API key (Admin only)
     #[graphql(name = "createBot", guard = "AdminGuard")]
     async fn create_bot(&self, ctx: &Context<'_>, name: String) -> Result<ApiKeyResponse> {
@@ -49,17 +30,5 @@ impl AuthMutations {
             .map_err(|e| format!("Failed to create bot: {}", e))?;
 
         Ok(ApiKeyResponse { api_key })
-    }
-
-    /// Delete a bot (Admin only)
-    #[graphql(name = "deleteBot", guard = "AdminGuard")]
-    async fn delete_bot(&self, ctx: &Context<'_>, api_key_id: i32) -> Result<bool> {
-        let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
-
-        ApiKeyService::delete_api_key(pool.as_ref(), api_key_id)
-            .await
-            .map_err(|e| format!("Failed to delete bot: {}", e))?;
-
-        Ok(true)
     }
 }

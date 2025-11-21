@@ -140,18 +140,6 @@ curl -X POST http://localhost:5000/ \
   }'
 ```
 
-### Logout
-
-```graphql
-mutation {
-  logout(sessionToken: "your_session_token_here")
-}
-```
-
-This invalidates the specified session for the current user.
-
-**Returns:** `true` if successful, `false` if not authenticated
-
 ## Bot Management
 ### Creating Bots (Admin Only)
 
@@ -179,16 +167,6 @@ mutation {
 ### Using API Keys (Bots)
 
 Bots use API keys instead of session tokens. Include the API key in the `Authorization` header in the same format as before.
-
-### Deleting Bots (Admin Only)
-
-```graphql
-mutation {
-  deleteBot(apiKeyId: 1)
-}
-```
-
-**Returns:** `true` if successful
 
 
 ## Permission Checking in Code
@@ -246,17 +224,6 @@ The GitHub account is not part of the specified organization. Either:
 
 ### GraphQL Mutations
 
-#### `logout(sessionToken: String!): Boolean!`
-
-Invalidate the specified session for current user.
-
-**Input:**
-- `sessionToken`: The session token to invalidate
-
-**Returns:** `true` if successful, `false` if not authenticated
-
----
-
 #### `createBot(name: String!): String!` 🔒 Admin only
 
 Create a new bot with API key.
@@ -265,17 +232,6 @@ Create a new bot with API key.
 - `name`: Bot name/description
 
 **Returns:** The API key string (only shown once!)
-
----
-
-#### `deleteBot(apiKeyId: Int!): Boolean!` 🔒 Admin only
-
-Delete a bot and revoke its API key.
-
-**Input:**
-- `apiKeyId`: ID of the API key to delete
-
-**Returns:** `true` if successful
 
 ## Example
 

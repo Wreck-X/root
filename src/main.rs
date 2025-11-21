@@ -159,7 +159,7 @@ fn setup_cors() -> CorsLayer {
     ];
 
     CorsLayer::new()
-        // TODO 2: https://github.com/amfoss/root/issues/151, enabling all origins for the time being
+        // TODO 2: https://github.com/amfoss/root/issues/151
         .allow_credentials(true)
         .allow_origin(origins)
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])

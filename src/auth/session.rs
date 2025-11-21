@@ -73,23 +73,6 @@ impl SessionService {
         Ok(result)
     }
 
-    pub async fn delete_session_by_token(pool: &PgPool, token: &str) -> Result<(), String> {
-        let token_hash = Self::hash_token(token);
-
-        sqlx::query(
-            r#"
-            DELETE FROM Sessions
-            WHERE token_hash = $1
-            "#,
-        )
-        .bind(token_hash)
-        .execute(pool)
-        .await
-        .map_err(|e| format!("Failed to delete session: {}", e))?;
-
-        Ok(())
-    }
-
     pub async fn cleanup_expired_sessions(pool: &PgPool) -> Result<u64, String> {
         let now = chrono::Utc::now().with_timezone(&Kolkata);
 
