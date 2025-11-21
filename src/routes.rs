@@ -20,11 +20,13 @@ use crate::auth::oauth::GitHubOAuthService;
 use crate::auth::session::SessionService;
 use crate::auth::AuthContext;
 use crate::graphql::{Mutation, Query};
+use crate::Config;
 
 #[derive(Clone)]
 struct AppState {
     schema: Schema<Query, Mutation, EmptySubscription>,
     pool: Arc<PgPool>,
+    config: Config,
 }
 
 async fn graphql_handler(
@@ -42,21 +44,21 @@ async fn graphql_handler(
 pub fn setup_router(
     schema: Schema<Query, Mutation, EmptySubscription>,
     cors: CorsLayer,
-    is_dev: bool,
+    config: Config,
     pool: Arc<PgPool>,
 ) -> Router {
     let pool_for_middleware = pool.clone();
-    let app_state = AppState { schema, pool };
+    let app_state = AppState {
+        schema,
+        pool,
+        config: config.clone(),
+    };
 
-    let mut router = Router::new()
+    let router = Router::new()
         .route("/", post(graphql_handler))
         .route("/auth/github", get(github_oauth_init))
-        .route("/auth/github/callback", get(github_oauth_callback));
-
-    if is_dev {
-        tracing::info!("GraphiQL playground enabled at /graphiql");
-        router = router.route("/graphiql", get(graphiql).post(graphql_handler));
-    }
+        .route("/auth/github/callback", get(github_oauth_callback))
+        .route("/graphiql", get(graphiql).post(graphql_handler));
 
     router
         .layer(middleware::from_fn(move |req, next| {
@@ -101,9 +103,6 @@ async fn github_oauth_callback(
     State(state): State<AppState>,
     AxumQuery(query): AxumQuery<OAuthCallbackQuery>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let frontend_url = std::env::var("FRONTEND_URL").expect("FRONTEND_URL not set");
-    let hostname = std::env::var("HOSTNAME").expect("HOSTNAME not set");
-
     let member = AuthService::handle_github_callback(state.pool.as_ref(), query.code)
         .await
         .map_err(|e| (StatusCode::UNAUTHORIZED, format!("OAuth failed: {}", e)))?;
@@ -120,8 +119,8 @@ async fn github_oauth_callback(
     let cookie = Cookie::build(("session_token", session_token))
         .path("/")
         .http_only(true)
-        .secure(false)
-        .domain(hostname)
+        .secure(state.config.env != "development")
+        .domain(state.config.hostname)
         .same_site(SameSite::Lax)
         .max_age(time::Duration::days(30))
         .build();
@@ -129,6 +128,6 @@ async fn github_oauth_callback(
     // Redirect to frontend with cookie
     Ok((
         [(header::SET_COOKIE, cookie.to_string())],
-        Redirect::to(&frontend_url),
+        Redirect::to(&state.config.frontend_url),
     ))
 }

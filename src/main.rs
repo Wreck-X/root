@@ -5,7 +5,7 @@ use sqlx::Executor;
 use sqlx::PgPool;
 use std::sync::Arc;
 use time::UtcOffset;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 use tracing::info;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
@@ -23,12 +23,15 @@ pub mod routes;
 
 /// Handles all over environment variables in one place.
 // TODO: Replace with `Config.rs` crate.
-struct Config {
-    env: String,
+#[derive(Clone)]
+pub struct Config {
+    pub env: String,
     secret_key: String,
     database_url: String,
     port: String,
     seeding_enabled: bool,
+    pub frontend_url: String,
+    pub hostname: String,
 }
 
 impl Config {
@@ -42,6 +45,8 @@ impl Config {
             seeding_enabled: std::env::var("SEEDING_ENABLED")
                 .map(|v| v.to_lowercase() == "true")
                 .unwrap_or(false),
+            frontend_url: std::env::var("FRONTEND_URL").expect("FRONTEND_URL not set"),
+            hostname: std::env::var("HOSTNAME").expect("HOSTNAME not set"),
         }
     }
 }
@@ -52,7 +57,7 @@ async fn main() {
     setup_tracing(&config.env);
 
     let pool = setup_database(&config.database_url).await;
-    let schema = build_graphql_schema(pool.clone(), config.secret_key);
+    let schema = build_graphql_schema(pool.clone(), config.secret_key.clone());
 
     if config.seeding_enabled {
         info!("Seeding database...");
@@ -65,7 +70,7 @@ async fn main() {
     });
 
     let cors = setup_cors();
-    let router = setup_router(schema, cors, config.env == "development", pool);
+    let router = setup_router(schema, cors, config.clone(), pool);
 
     info!("Starting Root...");
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", config.port))
