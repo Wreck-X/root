@@ -65,7 +65,8 @@ Add the following to your `.env` file:
 # GitHub OAuth credentials
 GITHUB_CLIENT_ID=your_client_id_here
 GITHUB_CLIENT_SECRET=your_client_secret_here
-GITHUB_REDIRECT_URL=http://localhost:5000/auth/github/callback
+GITHUB_REDIRECT_URL=http://localhost:5000/auth/github/callback # Oauth Callback
+FRONTEND_URL=http://localhost:3000/dashboard # Redirect after OAuth
 GITHUB_ORG_NAME=amfoss  # Organization that users must be part of
 ```
 
@@ -105,49 +106,14 @@ Now you can create bots and manage the system!
 
 ### Member Registration & Login (GitHub OAuth)
 
+The OAuth flow is now handled entirely by the backend, simplifying the frontend implementation.
 
-1. User visits: `http://localhost:5000/auth/github`
-2. Gets redirected to GitHub for authorization
-3. After authorization, GitHub redirects to the frontend at: `/auth/github/callback?code=...`
-4. Frontend receives the OAuth code
-5. Frontend calls GraphQL mutation with the code and the backend returns the session token for the  user:
-
-```graphql
-mutation {
-  githubOAuthCallback(code: "oauth_code_here") {
-    member {
-      memberId
-      name
-      email
-      role
-      githubUser
-    }
-    sessionToken
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "data": {
-    "githubOAuthCallback": {
-      "member": {
-        "memberId": 1,
-        "githubUser": "johndoe",
-        "name": "John Doe",
-        "email": "john@example.com",
-        "role": "Member"
-      },
-      "sessionToken": "abc123...xyz789"
-    }
-  }
-}
-```
-
-6. Frontend stores the session token (in localStorage, cookie, etc.)
-7. Frontend includes token in subsequent requests via Authorization header
-
+1.  **Initiate Login**: The user visits `http://localhost:5000/auth/github`.
+2.  **GitHub Authorization**: The user is redirected to GitHub to authorize the application.
+3.  **Backend Callback**: After authorization, GitHub redirects the user to the backend's callback URL: `http://localhost:5000/auth/github/callback`.
+4.  **Session Creation**: The backend exchanges the OAuth code for an access token, fetches user info, and either registers a new member or logs in an existing one. A session is created for the user.
+5.  **Cookie and Redirect**: The backend sets a secure, HTTP-only `session_token` cookie in the user's browser and redirects them to the `FRONTEND_URL` specified in your `.env` file.
+6.  **Authenticated State**: The user is now logged in. The browser will automatically send the session cookie with all subsequent requests to the backend API.
 
 **Important:**
 - First time users are automatically registered
@@ -156,16 +122,19 @@ mutation {
 
 ### Making Authenticated Requests
 
-Include the session token in the Authorization header:
+**For Members (Browser):**
+After logging in via GitHub OAuth, the browser automatically handles authentication by sending the `session_token` cookie with every request. No manual header management is needed in the frontend code.
 
+**For Bots (API Keys):**
+Bots must include their API key in the `Authorization` header:
 ```
-Authorization: Bearer <session_token>
+Authorization: Bearer <api_key>
 ```
 
-Example with curl:
+Example with curl (simulating a bot request):
 ```bash
-curl -X POST http://localhost:3000/ \
-  -H "Authorization: Bearer abc123...xyz789" \
+curl -X POST http://localhost:5000/ \
+  -H "Authorization: Bearer root_wnTK5uRq8FECFSvSC8OVZ8h0SSJefTMlvGWJmsS4" \
   -H "Content-Type: application/json" \
   -d '{
     "query": "{ member(memberId: 1) { name email } }"
@@ -278,19 +247,6 @@ The GitHub account is not part of the specified organization. Either:
 
 ### GraphQL Mutations
 
-#### `githubOAuthCallback(code: String!): AuthResponse!`
-
-Complete OAuth flow and create session.
-
-**Input:**
-- `code`: OAuth authorization code from GitHub
-
-**Returns:**
-- `member`: Member information including memberId, name, email, role, githubUser
-- `sessionToken`: Session token for subsequent requests
-
----
-
 #### `logout(sessionToken: String!): Boolean!`
 
 Invalidate the specified session for current user.
@@ -327,58 +283,42 @@ Delete a bot and revoke its API key.
 ### Complete Member Authentication Flow
 
 ```javascript
-// 1. Redirect to GitHub OAuth
-window.location.href = 'http://localhost:3000/auth/github';
+// 1. Redirect user to the backend's OAuth initiation endpoint
+function login() {
+  window.location.href = 'http://localhost:5000/auth/github';
+}
 
-// 2. After callback, extract code from URL
-const urlParams = new URLSearchParams(window.location.search);
-const code = urlParams.get('code');
+// After the user authorizes on GitHub, the backend handles everything
+// and redirects the user back to the frontend (e.g., to the dashboard).
+// The user is now authenticated, and the session cookie is set.
 
-// 3. Call GraphQL mutation
-const response = await fetch('http://localhost:3000/', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    query: `
-      mutation($code: String!) {
-        githubOAuthCallback(code: $code) {
-          member { memberId name email role }
-          sessionToken
-        }
-      }
-    `,
-    variables: { code }
-  })
-});
-
-const { data } = await response.json();
-const sessionToken = data.githubOAuthCallback.sessionToken;
-
-// 4. Store token
-localStorage.setItem('sessionToken', sessionToken);
-
-// 5. Use token in subsequent requests
-fetch('http://localhost:3000/', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${sessionToken}`
-  },
-  body: JSON.stringify({
-    query: '{ member(memberId: 1) { name } }'
-  })
-});
+// 2. Make authenticated requests
+// The browser will automatically include the session cookie.
+// No need to manually set Authorization headers.
+async function fetchMemberData() {
+  const response = await fetch('http://localhost:5000/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      query: '{ member(memberId: 1) { name } }'
+    })
+  });
+  
+  const result = await response.json();
+  console.log(result.data.member);
+}
 ```
 ## Architecture Notes
 
 ### Authentication Flow
 
-1. **Request arrives** → `auth_middleware` extracts Authorization header
-2. **Token validation** → Tries session token first, then API key
-3. **Member lookup** → Returns associated Member or None
-4. **Context injection** → AuthContext with Member is added to request extensions
-5. **GraphQL execution** → Guards check AuthContext for permissions
-6. **Response** → Returns data or permission error
+1. **Request arrives** → `auth_middleware` is executed.
+2. **Cookie check** → The middleware first checks for a `session_token` cookie. If valid, the associated member is found.
+3. **API Key check** → If no valid session cookie is found, it checks the `Authorization: Bearer <token>` header for an API key.
+4. **Member lookup** → If a valid key is found, the associated bot member is retrieved.
+5. **Context injection** → An `AuthContext` with the member (or `None`) is added to the request extensions.
+6. **GraphQL execution** → Guards check `AuthContext` for permissions.
+7. **Response** → Returns data or a permission error.
 
 ### Bot Members
 
