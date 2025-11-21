@@ -1,6 +1,6 @@
-use crate::auth::guards::{AdminOrBotGuard, AuthGuard};
-use crate::models::auth::Role;
-use crate::models::member::{CreateMemberInput, Member, UpdateMemberInput};
+use crate::auth::guards::AuthGuard;
+use crate::auth::AuthContext;
+use crate::models::member::{Member, UpdateMemberInput};
 use async_graphql::{Context, Object, Result};
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -10,35 +10,15 @@ pub struct MemberMutations;
 
 #[Object]
 impl MemberMutations {
-    #[graphql(name = "createMember", guard = "AdminOrBotGuard")]
-    async fn create_member(&self, ctx: &Context<'_>, input: CreateMemberInput) -> Result<Member> {
+    /// Update the details of the currently logged in member
+    #[graphql(name = "updateMe", guard = "AuthGuard")]
+    async fn update_me(&self, ctx: &Context<'_>, input: UpdateMemberInput) -> Result<Member> {
         let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
+        let auth = ctx
+            .data::<AuthContext>()
+            .expect("AuthContext must be in context.");
 
-        let member = sqlx::query_as::<_, Member>(
-            "INSERT INTO Member (roll_no, name, email, sex, year, hostel, mac_address, discord_id, group_id, track, github_user, role)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *"
-        )
-        .bind(&input.roll_no)
-        .bind(&input.name)
-        .bind(&input.email)
-        .bind(input.sex)
-        .bind(input.year)
-        .bind(&input.hostel)
-        .bind(&input.mac_address)
-        .bind(&input.discord_id)
-        .bind(input.group_id)
-        .bind(&input.track)
-        .bind(&input.github_user)
-        .bind(Role::Member)
-        .fetch_one(pool.as_ref())
-        .await?;
-
-        Ok(member)
-    }
-
-    #[graphql(name = "updateMember", guard = "AuthGuard")]
-    async fn update_member(&self, ctx: &Context<'_>, input: UpdateMemberInput) -> Result<Member> {
-        let pool = ctx.data::<Arc<PgPool>>().expect("Pool must be in context.");
+        let logged_in_user = auth.user.as_ref().ok_or("User not found in context")?;
 
         let member = sqlx::query_as::<_, Member>(
             "UPDATE Member SET
@@ -67,7 +47,7 @@ impl MemberMutations {
         .bind(input.group_id)
         .bind(&input.track)
         .bind(&input.github_user)
-        .bind(input.member_id)
+        .bind(logged_in_user.member_id)
         .fetch_one(pool.as_ref())
         .await?;
 

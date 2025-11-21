@@ -48,7 +48,6 @@ pub struct CreateMemberInput {
 
 #[derive(InputObject)]
 pub struct UpdateMemberInput {
-    pub member_id: i32,
     pub roll_no: Option<String>,
     pub name: Option<String>,
     pub email: Option<String>,

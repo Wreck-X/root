@@ -37,7 +37,6 @@ Note that unauthenticated users have essentially no access to the system.
 ### Protected Mutations
 
 The following mutations require Admin or Bot role:
-- `createMember`
 - `markAttendance`
 - `markStatusUpdate`
 - `createStatusBreak`
